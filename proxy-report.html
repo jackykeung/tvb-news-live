@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TVB News 83 — Stable Live Proxy (palazzo:8060)</title>
+<style>
+:root{--bg:#0f1115;--card:#171a21;--ink:#e8eaf0;--mut:#9aa3b2;--acc:#0ea5e9;--ok:#22c55e;--warn:#f59e0b;--line:#232833}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:960px;margin:0 auto;padding:28px 20px 70px}h1{font-size:25px;margin:0 0 4px}h2{font-size:18px;margin:34px 0 10px;border-left:4px solid var(--acc);padding-left:10px}
+.sub{color:var(--mut);margin-bottom:18px;font-size:13.5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin:14px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.kpi .k{font-size:11.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}.kpi .v{font-size:16px;font-weight:600;margin-top:4px}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600}.b-ok{background:rgba(34,197,94,.15);color:var(--ok)}.b-warn{background:rgba(245,158,11,.15);color:var(--warn)}
+code{background:#0b0d11;border:1px solid var(--line);border-radius:6px;padding:2px 6px;font:12.5px ui-monospace,Menlo,monospace;color:#c9d7ff;word-break:break-all}
+pre{background:#0b0d11;border:1px solid var(--line);border-radius:10px;padding:14px;overflow:auto;font:12.5px ui-monospace,Menlo,monospace;color:#d6e2ff;line-height:1.55}
+.urlbox{background:#0b0d11;border:1px solid var(--acc);border-radius:12px;padding:18px 20px;text-align:center;margin:14px 0}
+.urlbox a{font:20px ui-monospace,Menlo,monospace;color:var(--acc);text-decoration:none;word-break:break-all}
+table{width:100%;border-collapse:collapse;font-size:13.5px}th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}th{color:var(--mut);font-weight:600}
+ul{margin:8px 0;padding-left:20px}.note{color:var(--mut);font-size:13px}.muted{color:var(--mut)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>TVB 無綫新聞台 <span style="font-weight:400">(Channel 83)</span> — Stable Live Proxy</h1>
+<div class="sub">One fixed URL for any HLS player &bull; No login &bull; No DRM &bull; Auto-refreshing signed stream &bull; Deployed on palazzo :8060</div>
+
+<div class="grid">
+  <div class="kpi"><div class="k">Status</div><div class="v"><span class="badge b-ok">LIVE</span></div></div>
+  <div class="kpi"><div class="k">Host</div><div class="v">palazzo :8060</div></div>
+  <div class="kpi"><div class="k">Protocol</div><div class="v">HLS (AES-128)</div></div>
+  <div class="kpi"><div class="k">Quality</div><div class="v">720p / 576p / 270p</div></div>
+  <div class="kpi"><div class="k">Login</div><div class="v"><span class="badge b-ok">None</span></div></div>
+  <div class="kpi"><div class="k">DRM</div><div class="v"><span class="badge b-ok">None</span></div></div>
+</div>
+
+<h2>▶ The one URL</h2>
+<div class="urlbox">
+  <a href="http://192.168.1.130:8060/news.m3u8">http://192.168.1.130:8060/news.m3u8</a>
+</div>
+<div class="card">
+<strong>Who can open it</strong> — any HLS player on the <strong>same home network (192.168.1.x)</strong> as palazzo:
+<ul>
+  <li><strong>VLC</strong> (iPhone / Mac / Windows): <em>Open Network Stream</em> → paste the URL → play.</li>
+  <li><strong>IINA / mpv</strong> (macOS), <strong>Safari</strong>, <strong>PotPlayer</strong> — paste the URL into the open-network dialog.</li>
+</ul>
+<div class="note">No account, no token, no script needed on the player side. Just the URL.</div>
+</div>
+
+<h2>1. What this is &amp; why it exists</h2>
+<div class="card">
+The TVB News 83 live stream is a normal <strong>HLS (m3u8)</strong> feed — but its URL is <strong>time-signed</strong> and expires about every hour. A media player like VLC fetches the URL once and can't run a script to mint a fresh one, so a captured link goes stale mid-session.
+
+This proxy solves that: it sits between VLC and the broadcaster, and every time the signature is about to expire it <strong>silently re-resolves a fresh signed URL</strong> and keeps serving — so you point VLC at <em>one stable address</em> forever, and the hourly expiry is invisible.
+
+What it does on each refresh:
+<ol>
+  <li>POSTs the broadcaster's stream endpoint for a <em>fresh signed URL</em>.</li>
+  <li>Follows the CDN redirect to the current per-session edge.</li>
+  <li><strong>Rewrites the HLS playlists</strong> so every variant, segment and the decryption key are re-served through this same proxy (no client ever touches the CDN or the signed URL).</li>
+  <li>Re-resolves before the old signature expires (every ~55 min).</li>
+</ol>
+</div>
+
+<h2>2. How to read the feed (the HLS contract)</h2>
+<div class="card">
+<pre>http://192.168.1.130:8060/news.m3u8          # master playlist (auto-refresh)
+
+#EXTINF:8,                      # ~8-second segments, 25 fps
+Variant rungs (chosen by the player):
+  3/v1500000  → 1280×720  1.7 Mb/s
+  3/v1000000  → 1024×576  1.2 Mb/s
+  3/v400000   →  480×270  0.6 Mb/s
+  3/a128000   →  audio    128 kbps
+
+#EXT-X-KEY:METHOD=AES-128, URI="…/news/key"   # decryption key (public, no auth)</pre>
+The decryption key is a <strong>public 16-byte file</strong> — VLC fetches it natively and decrypts transparently.
+</div>
+
+<h2>3. Verification (proven, not assumed)</h2>
+<div class="card">
+The whole chain was exercised through the proxy, then a real segment was decrypted and probed:
+<table>
+<tr><th>Step</th><th>Result</th></tr>
+<tr><td>Master playlist</td><td>200 — 899 bytes, correctly rewritten</td></tr>
+<tr><td>720p variant playlist</td><td>200 — key + segment URIs rewritten</td></tr>
+<tr><td>AES key via proxy</td><td>200 — 16 bytes</td></tr>
+<tr><td>Live segment via proxy</td><td>200 — 1.08 MB .ts</td></tr>
+<tr><td><strong>Decrypted + ffprobe</strong></td><td><strong>H.264 1280×720 @25 fps MPEG-TS</strong> — real broadcast video</td></tr>
+</table>
+<div class="note">A decoded frame from the feed showed the live headline "商業數據通促成10.8萬宗貸款申請", the TVB News Channel logo and the live weather ticker — genuine, current news content.</div>
+</div>
+
+<h2>4. Requirements &amp; limits</h2>
+<div class="card">
+<ul>
+  <li><strong>Network:</strong> player and palazzo must be on the <strong>same LAN</strong> (192.168.1.x). Outside that (cellular / remote) needs a public entry point — ask to set that up.</li>
+  <li><strong>Login:</strong> none. <strong>DRM:</strong> none (only AES-128 content encryption).</li>
+  <li><strong>Ads:</strong> the proxy requests the ad-marker-free variant, so no client-side ad cue-points. Broadcast commercials baked into the channel timeline remain (unavoidable on any live feed); there is no separate ad overlay.</li>
+  <li><strong>Availability:</strong> runs as a systemd service (auto-starts, auto-restarts).</li>
+</ul>
+</div>
+
+<h2>5. Under the hood (deployment)</h2>
+<div class="card">
+<ul>
+  <li><strong>Service:</strong> <code>tvb-proxy.service</code> on palazzo, port <code>8060</code>, root of the box <code>/opt/tvb-proxy/tvb_proxy.py</code>.</li>
+  <li><strong>Language:</strong> Python 3, standard library only (no dependencies) — threaded HTTP server.</li>
+  <li><strong>Engine:</strong> <code>news.tvb.com → prd-news-sc-v3-api.tvb.com</code> stream endpoint → Edgeware HLS CDN (AES-128).</li>
+</ul>
+<div class="note" style="margin-top:10px">Not affiliated with TVB. Technical interoperability of the public live-stream URL; content &amp; copyright remain with Television Broadcasts Limited.</div>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,16 @@
+[Unit]
+Description=TVB News 83 live-stream HLS proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/tvb-proxy/tvb_proxy.py 8060
+WorkingDirectory=/opt/tvb-proxy
+Restart=always
+RestartSec=3
+User=jacky
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

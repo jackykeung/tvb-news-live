@@ -7,8 +7,10 @@ recovered from the Android app (`com.tvb.iNews` v4.1.2, Flutter).
 
 | File | Purpose |
 |------|---------|
-| `report.html` | **Self-contained analysis report + live player** — open in any browser. Contains the full endpoint contract, how the stream is resolved, the ad mechanism, and a built-in HLS player (hls.js inlined, no CDN). |
-| `tvb_live.py` | Resolver script — prints a fresh signed stream URL (clean or ad-marked). |
+| `report.html` (and `proxy-report.html`) | **Self-contained analysis report + live player** — open in any browser. Covers the endpoint contract, the ad mechanism, and a built-in HLS player (hls.js inlined, no CDN). |
+| `tvb_live.py` | Resolver script — prints a fresh signed stream URL (clean or ad-marked) for direct VLC use. |
+| `deploy/tvb_proxy.py` | **Stable HLS proxy** — publishes one fixed URL any player can open, transparently re-minting the hourly-signed stream. |
+| `deploy/tvb-proxy.service` | systemd unit for running the proxy as a service. |
 | `assets/tvb-news-83-frame.png` | A decoded frame from the live stream (proof of real broadcast content). |
 
 ## Live stream in one line
@@ -49,6 +51,27 @@ vlc "$(curl -s -X POST -H "Content-Type: application/json" -d '{}' \
   https://news.tvb.com/app/public/live/stream/C \
   | python3 -c "import sys,json;print(json.load(sys.stdin)['data']['stream_url'])")"
 ```
+
+## Stable proxy (recommended for players)
+
+Because the signed URL expires hourly, a media player (e.g. VLC) that fetches the URL once will hit a
+stale link. Point the player at the proxy's **stable URL** instead — the proxy re-mints the signed
+URL transparently before it expires:
+
+```
+http://<proxy-host>:8060/news.m3u8
+```
+
+Deploy `deploy/tvb_proxy.py` on a box on your LAN (e.g. a Pi) and run it as a systemd service:
+
+```bash
+sudo install -d /opt/tvb-proxy && sudo cp deploy/tvb_proxy.py /opt/tvb-proxy/
+sudo cp deploy/tvb-proxy.service /etc/systemd/system/
+sudo systemctl enable --now tvb-proxy
+```
+
+The player (VLC / IINA / Safari / PotPlayer) and the proxy must be on the **same network**.
+Verified end-to-end: a segment fetched through the proxy decrypts to **H.264 1280×720 @ 25 fps**.
 
 ## Key facts
 

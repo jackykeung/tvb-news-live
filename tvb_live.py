@@ -22,6 +22,8 @@ import json
 import shlex
 import ssl
 
+__version__ = "1.1.0"
+
 ENDPOINT = "https://news.tvb.com/app/public/live/stream"
 
 
