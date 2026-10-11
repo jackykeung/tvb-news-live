@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TVB News 83 — Live Stream Analysis &amp; Stable Proxy</title>
+<style>
+:root{--bg:#0f1115;--card:#171a21;--ink:#e8eaf0;--mut:#9aa3b2;--acc:#0ea5e9;--ok:#22c55e;--warn:#f59e0b;--line:#232833}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:28px 20px 70px}h1{font-size:25px;margin:0 0 4px}h2{font-size:18px;margin:34px 0 10px;border-left:4px solid var(--acc);padding-left:10px}
+.sub{color:var(--mut);margin-bottom:18px;font-size:13.5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin:14px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.kpi .k{font-size:11.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}.kpi .v{font-size:16px;font-weight:600;margin-top:4px}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600}.b-ok{background:rgba(34,197,94,.15);color:var(--ok)}.b-warn{background:rgba(245,158,11,.15);color:var(--warn)}
+code{background:#0b0d11;border:1px solid var(--line);border-radius:6px;padding:2px 6px;font:12.5px ui-monospace,Menlo,monospace;color:#c9d7ff;word-break:break-all}
+pre{background:#0b0d11;border:1px solid var(--line);border-radius:10px;padding:14px;overflow:auto;font:12.5px ui-monospace,Menlo,monospace;color:#d6e2ff;line-height:1.55}
+.urlbox{background:#0b0d11;border:1px solid var(--acc);border-radius:12px;padding:18px 20px;text-align:center;margin:14px 0}
+.urlbox a{font:19px ui-monospace,Menlo,monospace;color:var(--acc);text-decoration:none;word-break:break-all}
+table{width:100%;border-collapse:collapse;font-size:13.5px}th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}th{color:var(--mut);font-weight:600}
+ul{margin:8px 0;padding-left:20px}ol{margin:8px 0;padding-left:22px}.note{color:var(--mut);font-size:13px}.muted{color:var(--mut)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>TVB 無綫新聞台 <span style="font-weight:400">(Channel 83)</span> — Live Stream Analysis &amp; Stable Proxy</h1>
+<div class="sub">Reverse-engineered from the Android app &bull; Edgeware HLS &bull; AES-128 &bull; No login &bull; No DRM &bull; Deployed on palazzo :8060</div>
+
+<div class="grid">
+  <div class="kpi"><div class="k">Status</div><div class="v"><span class="badge b-ok">LIVE</span></div></div>
+  <div class="kpi"><div class="k">Proxy host</div><div class="v">palazzo :8060</div></div>
+  <div class="kpi"><div class="k">Protocol</div><div class="v">HLS (AES-128)</div></div>
+  <div class="kpi"><div class="k">Quality</div><div class="v">720p / 576p / 270p</div></div>
+  <div class="kpi"><div class="k">Login</div><div class="v"><span class="badge b-ok">None</span></div></div>
+  <div class="kpi"><div class="k">DRM</div><div class="v"><span class="badge b-ok">None</span></div></div>
+</div>
+
+<h2>▶ The one URL</h2>
+<div class="urlbox">
+  <a href="http://192.168.1.130:8060/news.m3u8">http://192.168.1.130:8060/news.m3u8</a>
+</div>
+<div class="card">
+Open in <strong>VLC</strong> (iPhone / Mac / Windows: <em>Open Network Stream</em> → paste → play), <strong>IINA</strong>,
+<strong>Safari</strong>, or <strong>PotPlayer</strong>. The player and palazzo must be on the <strong>same home network (192.168.1.x)</strong>.
+No account, no token, no script needed on the player side.
+</div>
+
+<h2>1. How the stream is obtained (the endpoint)</h2>
+<div class="card">
+A single public call resolves the live stream — no login, no API key, no auth header:
+<pre>POST https://news.tvb.com/app/public/live/stream/C
+Content-Type: application/json   Body: {}</pre>
+<pre>{ "data": {
+  "stream_url": "https://edgeware-live2.edgeware.tvb.com/…/index.m3u8?sig=…&amp;mode=admarker,ticks",
+  "protocol": "hls", "quality": "hd", "refresh_interval": 3600, "geo_blocked": false } }</pre>
+Only live channel is <code>C</code> (無綫新聞台 / Channel 83). The URL is <strong>time-signed and expires in ~1 hour</strong>
+— this is the whole reason a stable proxy exists.
+</div>
+
+<h2>2. The media (Edgeware HLS)</h2>
+<div class="card">
+Following the master URL redirects to a per-session Edgeware edge. Variants:
+<table>
+<tr><th>Variant</th><th>Resolution</th><th>Bandwidth</th></tr>
+<tr><td><code>3/v1500000</code></td><td>1280×720</td><td>1.71 Mb/s</td></tr>
+<tr><td><code>3/v1000000</code></td><td>1024×576</td><td>1.20 Mb/s</td></tr>
+<tr><td><code>3/v400000</code></td><td>480×270</td><td>0.59 Mb/s</td></tr>
+<tr><td><code>3/a128000</code></td><td>audio</td><td>128 kbps</td></tr>
+</table>
+Segments are ~8s H.264 at 25 fps. Every media stream is <strong>AES-128 CBC encrypted</strong>, and the
+decryption key is a <strong>public 16-byte file</strong> (<code>https://ads.cdn.tvb.com/newskeys/live.key</code>) —
+so the whole chain plays in any HLS player without credentials.
+</div>
+
+<h2>3. What the proxy does</h2>
+<div class="card">
+The signed URL expires hourly; a media player can't re-mint it. The proxy connects the two:
+<ol>
+  <li>POSTs the stream endpoint for a <em>fresh signed URL</em>.</li>
+  <li>Follows the CDN redirect to the current session edge.</li>
+  <li><strong>Rewrites the HLS playlists</strong> so every variant, segment and the AES key are re-served
+      through this same proxy — players never see the CDN or the signed URL.</li>
+  <li>Re-resolves a fresh signed URL before expiry (every ~55 min). <strong>To the player it's one fixed URL forever.</strong></li>
+</ol>
+Runs as a systemd service (<code>tvb-proxy.service</code>): auto-starts, auto-restarts, survives reboots.
+</div>
+
+<h2>4. Ads, Login &amp; DRM</h2>
+<div class="card">
+<table>
+<tr><th>Question</th><th>Answer</th></tr>
+<tr><td>Login required to play live?</td><td><span class="badge b-ok">No</span> — fully anonymous.</td></tr>
+<tr><td>API key / auth header?</td><td>No. Just <code>POST + {}</code>.</td></tr>
+<tr><td>DRM?</td><td><span class="badge b-ok">None</span> — only AES-128 content encryption (not Widevine).</td></tr>
+<tr><td>Ads?</td><td>Client-side (SCTE-35 + IMA overlay); the stream itself is ad-free. The proxy requests the
+    ad-marker-free variant. Broadcast commercials baked into the channel timeline remain (unavoidable on live TV).</td></tr>
+<tr><td>Geo-restriction?</td><td>None observed (<code>geo_blocked:false</code>, HK).</td></tr>
+</table>
+</div>
+
+<h2>5. Verification (proven, not assumed)</h2>
+<div class="card">
+The full chain was exercised, then a real segment decrypted:
+<table>
+<tr><th>Step</th><th>Result</th></tr>
+<tr><td>Master (rewritten, scheme-correct)</td><td>200 — all variant URIs carry <code>http://</code></td></tr>
+<tr><td>720p variant playlist</td><td>200 — key + segment URIs rewritten</td></tr>
+<tr><td>AES key via proxy</td><td>200 — 16 bytes</td></tr>
+<tr><td>Live segment via proxy</td><td>200 — ~1 MB .ts</td></tr>
+<tr><td><strong>Decrypted + ffprobe</strong></td><td><strong>H.264 1280×720 @25 fps</strong> — real broadcast</td></tr>
+</table>
+<div class="note">A decoded frame showed the live headline "商業數據通促成10.8萬宗貸款申請", the TVB News logo and the live
+weather ticker — genuine, current content, proving it's a real live feed and not a placeholder.</div>
+</div>
+
+<h2>6. Browser player (works too)</h2>
+<div class="card">
+The same stream also plays in a browser via <code>hls.js</code> (stream hosts send <code>Access-Control-Allow-Origin: *</code>).
+The companion <code>report.html</code> ships a self-contained player (hls.js inlined, no CDN).
+To make it work you must first fetch the master to follow the Edgeware 302 and feed the resulting
+session URL to hls.js — hls.js does not follow cross-origin redirects itself.
+</div>
+
+<h2>7. Links</h2>
+<div class="card">
+<ul>
+  <li><strong>Public proxy report:</strong> <code>upload.jackykeung.com/d/tvb-news-live/…</code></li>
+  <li><strong>ox dashboard:</strong> <code>ox.jackykeung.com/tvb-news-live/</code> (Authelia-gated)</li>
+  <li><strong>Source (GitHub):</strong> <code>github.com/jackykeung/tvb-news-live</code> — resolver, proxy, reports (MIT)</li>
+</ul>
+<div class="note" style="margin-top:10px">Not affiliated with TVB. Technical interoperability of the public live-stream
+URL; content &amp; copyright remain with Television Broadcasts Limited.</div>
+</div>
+
+</div>
+</body>
+</html>
